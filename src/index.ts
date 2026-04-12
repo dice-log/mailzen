@@ -43,6 +43,9 @@ async function processEmails(env: Env): Promise<void> {
       const result = await analyzeMessage(env, message);
       console.log(`[${message.id}] category=${result.category} summary=${result.summary}`);
 
+      // Skip labeling if analysis failed — leave as unread
+      if (result.summary === "解析に失敗しました") continue;
+
       // Label and mark as read
       const labelId = labelMap.get(`Mailzen/${result.category}`);
       if (labelId) {

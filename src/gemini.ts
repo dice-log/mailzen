@@ -1,7 +1,7 @@
 import { Env, GmailMessage, GeminiResult, Category } from "./types";
 
 const GEMINI_API =
-  "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent";
+  "https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-lite-latest:generateContent";
 
 const CATEGORIES: Category[] = [
   "important",
@@ -23,7 +23,7 @@ ${message.body.slice(0, 3000)}
 
 以下のJSON形式で回答してください（他のテキストは不要）:
 {
-  "summary": "3行以内の要約（日本語）。氏名・住所・電話番号・口座番号・メールアドレス等の個人情報は含めないこと",
+  "summary": "3行以内の要約（日本語）。氏名・住所・電話番号・口座番号・メールアドレス・確認コード・ワンタイムパスワード等の個人情報やセキュリティ情報は含めないこと",
   "category": "${CATEGORIES.join(" | ")}のいずれか"
 }`;
 }
