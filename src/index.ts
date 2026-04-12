@@ -1,5 +1,5 @@
 import { Env } from "./types";
-import { getAccessToken, fetchUnreadMessages, resolveLabels, addLabel, createDraft } from "./gmail";
+import { getAccessToken, fetchUnreadMessages, resolveLabels, addLabel } from "./gmail";
 import { analyzeMessage } from "./gemini";
 
 export default {
@@ -41,17 +41,12 @@ async function processEmails(env: Env): Promise<void> {
   for (const message of messages) {
     try {
       const result = await analyzeMessage(env, message);
-      console.log(`[${message.id}] category=${result.category}`);
+      console.log(`[${message.id}] category=${result.category} summary=${result.summary}`);
 
       // Label and mark as read
       const labelId = labelMap.get(`Mailzen/${result.category}`);
       if (labelId) {
         await addLabel(token, message.id, labelId);
-      }
-
-      // Create draft reply
-      if (result.draftReply) {
-        await createDraft(token, message.from, message.subject, result.draftReply);
       }
 
       // message object goes out of scope here — body is not persisted

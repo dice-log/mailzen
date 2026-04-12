@@ -18,7 +18,6 @@ export interface GmailMessage {
 export interface GeminiResult {
   summary: string;
   category: string;
-  draftReply: string;
 }
 
 export type Category =

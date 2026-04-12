@@ -45,7 +45,7 @@ export async function fetchUnreadMessages(token: string): Promise<GmailMessage[]
   const headers = { Authorization: `Bearer ${token}` };
 
   const listRes = await fetch(
-    `${GMAIL_API}/messages?maxResults=10`,
+    `${GMAIL_API}/messages?q=is:unread&maxResults=10`,
     { headers }
   );
   const listData = (await listRes.json()) as {
