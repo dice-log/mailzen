@@ -4,3 +4,7 @@ compatibility_date = "2025-01-01"
 
 [triggers]
 crons = ["*/15 * * * *"]
+
+[observability.logs]
+enabled = true
+invocation_logs = true
