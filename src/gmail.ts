@@ -77,33 +77,37 @@ export async function fetchUnreadMessages(token: string): Promise<GmailMessage[]
   return messages;
 }
 
+// Fetch existing labels and create missing ones, returning a name→id map
+export async function resolveLabels(token: string, labelNames: string[]): Promise<Map<string, string>> {
+  const headers = { Authorization: `Bearer ${token}` };
+  const labelsRes = await fetch(`${GMAIL_API}/labels`, { headers });
+  const labelsData = (await labelsRes.json()) as { labels: { id: string; name: string }[] };
+
+  const labelMap = new Map<string, string>();
+  for (const existing of labelsData.labels) {
+    labelMap.set(existing.name, existing.id);
+  }
+
+  for (const name of labelNames) {
+    if (!labelMap.has(name)) {
+      const createRes = await fetch(`${GMAIL_API}/labels`, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+        body: JSON.stringify({ name }),
+      });
+      const created = (await createRes.json()) as { id: string; name: string };
+      labelMap.set(created.name, created.id);
+    }
+  }
+
+  return labelMap;
+}
+
 export async function addLabel(
   token: string,
   messageId: string,
-  labelName: string
+  labelId: string
 ): Promise<void> {
-  // Get or create label
-  const labelsRes = await fetch(`${GMAIL_API}/labels`, {
-    headers: { Authorization: `Bearer ${token}` },
-  });
-  const labelsData = (await labelsRes.json()) as {
-    labels: { id: string; name: string }[];
-  };
-  let label = labelsData.labels.find((l) => l.name === labelName);
-
-  if (!label) {
-    const createRes = await fetch(`${GMAIL_API}/labels`, {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${token}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({ name: labelName }),
-    });
-    label = (await createRes.json()) as { id: string; name: string };
-  }
-
-  // Apply label and mark as read
   await fetch(`${GMAIL_API}/messages/${messageId}/modify`, {
     method: "POST",
     headers: {
@@ -111,7 +115,7 @@ export async function addLabel(
       "Content-Type": "application/json",
     },
     body: JSON.stringify({
-      addLabelIds: [label.id],
+      addLabelIds: [labelId],
       removeLabelIds: ["UNREAD"],
     }),
   });

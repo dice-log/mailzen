@@ -1,5 +1,5 @@
 import { Env } from "./types";
-import { getAccessToken, fetchUnreadMessages, addLabel, createDraft } from "./gmail";
+import { getAccessToken, fetchUnreadMessages, resolveLabels, addLabel, createDraft } from "./gmail";
 import { analyzeMessage } from "./gemini";
 
 export default {
@@ -25,10 +25,18 @@ export default {
   },
 };
 
+const CATEGORIES = ["important", "newsletter", "notification", "promotion", "social", "other"];
+
 async function processEmails(env: Env): Promise<void> {
   const token = await getAccessToken(env);
   const messages = await fetchUnreadMessages(token);
   console.log(`Processing ${messages.length} unread messages`);
+
+  if (!messages.length) return;
+
+  // Resolve all labels once upfront
+  const labelNames = CATEGORIES.map((c) => `Mailzen/${c}`);
+  const labelMap = await resolveLabels(token, labelNames);
 
   for (const message of messages) {
     try {
@@ -36,7 +44,10 @@ async function processEmails(env: Env): Promise<void> {
       console.log(`[${message.id}] category=${result.category}`);
 
       // Label and mark as read
-      await addLabel(token, message.id, `Mailzen/${result.category}`);
+      const labelId = labelMap.get(`Mailzen/${result.category}`);
+      if (labelId) {
+        await addLabel(token, message.id, labelId);
+      }
 
       // Create draft reply
       if (result.draftReply) {
