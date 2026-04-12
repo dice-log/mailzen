@@ -1,7 +1,7 @@
 import { Env, GmailMessage, GeminiResult, Category } from "./types";
 
 const GEMINI_API =
-  "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-lite:generateContent";
+  "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent";
 
 const CATEGORIES: Category[] = [
   "important",

@@ -2,7 +2,7 @@ import { Env, GmailMessage } from "./types";
 
 const GMAIL_API = "https://gmail.googleapis.com/gmail/v1/users/me";
 
-async function getAccessToken(env: Env): Promise<string> {
+export async function getAccessToken(env: Env): Promise<string> {
   const res = await fetch("https://oauth2.googleapis.com/token", {
     method: "POST",
     headers: { "Content-Type": "application/x-www-form-urlencoded" },
@@ -41,12 +41,11 @@ function getHeader(headers: any[], name: string): string {
   return headers.find((h: any) => h.name.toLowerCase() === name.toLowerCase())?.value ?? "";
 }
 
-export async function fetchUnreadMessages(env: Env): Promise<GmailMessage[]> {
-  const token = await getAccessToken(env);
+export async function fetchUnreadMessages(token: string): Promise<GmailMessage[]> {
   const headers = { Authorization: `Bearer ${token}` };
 
   const listRes = await fetch(
-    `${GMAIL_API}/messages?q=is:unread&maxResults=10`,
+    `${GMAIL_API}/messages?maxResults=10`,
     { headers }
   );
   const listData = (await listRes.json()) as {
@@ -79,12 +78,10 @@ export async function fetchUnreadMessages(env: Env): Promise<GmailMessage[]> {
 }
 
 export async function addLabel(
-  env: Env,
+  token: string,
   messageId: string,
   labelName: string
 ): Promise<void> {
-  const token = await getAccessToken(env);
-
   // Get or create label
   const labelsRes = await fetch(`${GMAIL_API}/labels`, {
     headers: { Authorization: `Bearer ${token}` },
@@ -121,16 +118,14 @@ export async function addLabel(
 }
 
 export async function createDraft(
-  env: Env,
+  token: string,
   to: string,
   subject: string,
   body: string
 ): Promise<void> {
-  const token = await getAccessToken(env);
-
-  const raw = btoa(
-    `To: ${to}\r\nSubject: Re: ${subject}\r\nContent-Type: text/plain; charset=utf-8\r\n\r\n${body}`
-  )
+  const mailContent = `To: ${to}\r\nSubject: Re: ${subject}\r\nContent-Type: text/plain; charset=utf-8\r\n\r\n${body}`;
+  const bytes = new TextEncoder().encode(mailContent);
+  const raw = btoa(String.fromCharCode(...bytes))
     .replace(/\+/g, "-")
     .replace(/\//g, "_")
     .replace(/=+$/, "");
