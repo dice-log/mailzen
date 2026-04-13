@@ -41,7 +41,19 @@ async function processEmails(env: Env): Promise<void> {
   for (const message of messages) {
     try {
       const result = await analyzeMessage(env, message);
-      console.log(`[${message.id}] category=${result.category} summary=${result.summary}`);
+
+      // Resolve sender name: check KV cache first, then use Gemini result
+      const domain = message.from.match(/@([\w.-]+)/)?.[1]?.toLowerCase() ?? null;
+      let senderName: string | null = null;
+      if (domain) {
+        senderName = await env.SENDER_NAMES.get(domain);
+        if (!senderName && result.senderName) {
+          senderName = result.senderName;
+          await env.SENDER_NAMES.put(domain, senderName);
+        }
+      }
+
+      console.log(`[${message.id}] sender=${senderName ?? "unknown"} category=${result.category} summary=${result.summary}`);
 
       // Skip labeling if analysis failed — leave as unread
       if (result.summary === "解析に失敗しました") continue;

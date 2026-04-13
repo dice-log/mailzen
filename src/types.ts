@@ -3,6 +3,7 @@ export interface Env {
   GMAIL_CLIENT_SECRET: string;
   GMAIL_REFRESH_TOKEN: string;
   GEMINI_API_KEY: string;
+  SENDER_NAMES: KVNamespace;
 }
 
 export interface GmailMessage {
@@ -18,6 +19,7 @@ export interface GmailMessage {
 export interface GeminiResult {
   summary: string;
   category: string;
+  senderName: string | null;
 }
 
 export type Category =

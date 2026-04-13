@@ -8,3 +8,7 @@ crons = ["*/15 * * * *"]
 [observability.logs]
 enabled = true
 invocation_logs = true
+
+[[kv_namespaces]]
+binding = "SENDER_NAMES"
+id = "6a4152b614a041038e82308cb97f7611"

@@ -24,7 +24,8 @@ ${message.body.slice(0, 3000)}
 以下のJSON形式で回答してください（他のテキストは不要）:
 {
   "summary": "3行以内の要約（日本語）。氏名・住所・電話番号・口座番号・メールアドレス・確認コード・ワンタイムパスワード等の個人情報やセキュリティ情報は含めないこと",
-  "category": "${CATEGORIES.join(" | ")}のいずれか"
+  "category": "${CATEGORIES.join(" | ")}のいずれか",
+  "senderName": "送信者の企業・サービス名（日本語）。個人からのメールの場合はnull"
 }`;
 }
 
@@ -52,6 +53,7 @@ export async function analyzeMessage(
     return {
       summary: "解析に失敗しました",
       category: "other",
+      senderName: null,
     };
   }
 
