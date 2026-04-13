@@ -45,10 +45,9 @@
 | processed_at | timestamp | |
 
 ### タスク
-- [ ] Supabase プロジェクトに上記テーブルを作成
-- [ ] Worker から Supabase に接続できるか確認
-- [ ] 処理結果を mail_results に保存する実装
-- [ ] `SUPABASE_URL` / `SUPABASE_ANON_KEY` を wrangler secret に追加
+- [x] D1 データベース `mailzen-db` を作成（Supabase から変更）
+- [x] `mail_results` テーブルを作成
+- [x] 処理結果を mail_results に保存する実装
 
 ---
 
