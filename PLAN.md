@@ -120,3 +120,57 @@ cron (15分) → Producer: D1 から全アカウント取得 → Queue にアカ
 - **プロバイダー**: Gmail から始めて Outlook / Yahoo 等に拡張予定
 - **分散方式**: Cloudflare Queues でアカウント単位に分散処理
 - **料金戦略**: 無料枠で開始し、50アカウント超 or 1分間隔が必要になった時点で有料化（$5/月）
+
+---
+
+## 鍵ローテーション（軽量運用）
+
+### 目的
+- `ENCRYPTION_KEY` 漏えい時の被害期間を短くする
+- 鍵の変更手順を固定化して復号不能事故を防ぐ
+
+### 手順（漏えい疑い時・年1回目安）
+1. 現行 `ENCRYPTION_KEY` を安全な保管先に退避（即削除せず一時保管）
+2. 新しい32バイト鍵（64桁hex）を生成し、Cloudflare secret と GitHub Secrets に設定
+3. `mail_accounts.credentials` を旧鍵で復号し、新鍵で再暗号化して更新
+4. テストアカウント1件で復号・処理成功を確認後、通常運用に戻す
+
+### 最低限のルール
+- 鍵変更前に旧鍵退避を必須化する
+- 復号テスト1件が通るまで旧鍵を破棄しない
+- 本番データがある環境では、再暗号化なしで鍵だけ先に差し替えない
+
+---
+
+## Gmail credentials.json 最小フォーマット
+
+`scripts/register-account.mjs` で登録する Gmail 認証情報は以下を最小構成とする。
+
+```json
+{
+  "clientId": "xxx.apps.googleusercontent.com",
+  "clientSecret": "xxx",
+  "refreshToken": "xxx"
+}
+```
+
+---
+
+## Secret 同期と動作確認手順
+
+### 事前準備
+- GitHub Secrets に `CLOUDFLARE_API_TOKEN` と `ENCRYPTION_KEY` を設定
+- `ENCRYPTION_KEY` は64桁hex（32バイト）であることを確認
+- 旧 `ENCRYPTION_KEY` を安全な保管先に退避
+
+### 手順
+1. GitHub Actions の `Sync Cloudflare Secret` を手動実行（`target=production`, `confirm_old_key_backed_up=yes`）
+2. テスト用 `credentials.json` を用意してアカウント登録
+   - `ENCRYPTION_KEY=<テスト用キー> npm run register:account -- --email you@example.com --credentials-file ./credentials.json --execute true`
+3. `https://mailzen.<your-subdomain>.workers.dev/run` を呼び出してジョブ投入
+4. Worker ログと D1 の `mail_results` を確認し、1件以上処理されることを検証
+
+### 失敗時のロールバック（3ステップ固定）
+1. 旧 `ENCRYPTION_KEY` を GitHub Secrets に戻し、`Sync Cloudflare Secret` を再実行
+2. `/run` を呼び出してテストアカウント1件の復号・処理成功を確認
+3. 実施日時、原因、対応内容を運用メモに記録
