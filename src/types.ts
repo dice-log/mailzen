@@ -4,6 +4,7 @@ export interface Env {
   GMAIL_REFRESH_TOKEN: string;
   GEMINI_API_KEY: string;
   SENDER_NAMES: KVNamespace;
+  DB: D1Database;
 }
 
 export interface GmailMessage {

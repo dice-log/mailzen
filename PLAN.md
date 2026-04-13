@@ -7,9 +7,9 @@
 - Cloudflare API トークンを GitHub Secrets に設定
 
 ### タスク
-- [ ] `.github/workflows/deploy.yml` の作成
-- [ ] Cloudflare API トークンを GitHub Secrets に追加
-- [ ] デプロイワークフローの動作確認
+- [x] `.github/workflows/deploy.yml` の作成
+- [x] Cloudflare API トークンを GitHub Secrets に追加
+- [x] デプロイワークフローの動作確認
 
 ---
 

@@ -58,6 +58,21 @@ async function processEmails(env: Env): Promise<void> {
       // Skip labeling if analysis failed — leave as unread
       if (result.summary === "解析に失敗しました") continue;
 
+      // Save result to D1
+      await env.DB.prepare(
+        `INSERT OR IGNORE INTO mail_results (message_id, thread_id, sender, subject, category, summary, suspicious, processed_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
+      ).bind(
+        message.id,
+        message.threadId,
+        senderName ?? message.from,
+        message.subject,
+        result.category,
+        result.summary,
+        result.suspicious ? 1 : 0,
+        new Date().toISOString()
+      ).run();
+
       // If suspicious: add warning label and leave as unread
       if (result.suspicious) {
         const suspiciousLabelId = labelMap.get("Mailzen/suspicious");

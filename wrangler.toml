@@ -12,3 +12,8 @@ invocation_logs = true
 [[kv_namespaces]]
 binding = "SENDER_NAMES"
 id = "6a4152b614a041038e82308cb97f7611"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "mailzen-db"
+database_id = "381dd643-8151-49c9-a002-e9803e4baae0"
