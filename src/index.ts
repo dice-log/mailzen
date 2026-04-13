@@ -2,6 +2,14 @@ import { Env, AccountQueueMessage } from "./types";
 import { enqueueAccounts } from "./producer";
 import { processAccount } from "./consumer";
 
+function logInfo(event: string, data: Record<string, unknown>): void {
+  console.log(JSON.stringify({ level: "info", event, ...data }));
+}
+
+function logError(event: string, data: Record<string, unknown>): void {
+  console.error(JSON.stringify({ level: "error", event, ...data }));
+}
+
 export default {
   async scheduled(
     _controller: ScheduledController,
@@ -31,9 +39,15 @@ export default {
     for (const message of batch.messages) {
       try {
         await processAccount(env, message.body.accountId);
+        logInfo("queue_message_acked", {
+          accountId: message.body.accountId,
+        });
         message.ack();
       } catch (err) {
-        console.error(`Failed to process account ${message.body.accountId}:`, err);
+        logError("queue_message_failed", {
+          accountId: message.body.accountId,
+          error: err instanceof Error ? err.message : String(err),
+        });
         message.retry();
       }
     }

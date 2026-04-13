@@ -20,6 +20,14 @@ interface MailAccount {
   credentials: string;
 }
 
+function logInfo(event: string, data: Record<string, unknown>): void {
+  console.log(JSON.stringify({ level: "info", event, ...data }));
+}
+
+function logError(event: string, data: Record<string, unknown>): void {
+  console.error(JSON.stringify({ level: "error", event, ...data }));
+}
+
 function getAdapter(provider: string, credentials: unknown): MailAdapter {
   if (provider === "gmail") {
     return new GmailAdapter(credentials as GmailCredentials);
@@ -33,7 +41,7 @@ export async function processAccount(env: Env, accountId: string): Promise<void>
   ).bind(accountId).first<MailAccount>();
 
   if (!account) {
-    console.error(`Account not found: ${accountId}`);
+    logError("account_not_found", { accountId });
     return;
   }
 
@@ -42,7 +50,12 @@ export async function processAccount(env: Env, accountId: string): Promise<void>
   const adapter = getAdapter(account.provider, credentials);
 
   const messages = await adapter.fetchUnreadMessages();
-  console.log(`[${account.email}] ${messages.length} unread message(s)`);
+  logInfo("account_messages_fetched", {
+    accountId,
+    provider: account.provider,
+    email: account.email,
+    unreadCount: messages.length,
+  });
   if (!messages.length) return;
 
   const labelNames = [
@@ -65,9 +78,14 @@ export async function processAccount(env: Env, accountId: string): Promise<void>
         }
       }
 
-      console.log(
-        `[${message.id}] sender=${senderName ?? "unknown"} category=${result.category} suspicious=${result.suspicious}`
-      );
+      logInfo("message_analyzed", {
+        accountId,
+        messageId: message.id,
+        provider: account.provider,
+        sender: senderName ?? "unknown",
+        category: result.category,
+        suspicious: result.suspicious,
+      });
 
       if (result.summary === "解析に失敗しました") continue;
 
@@ -102,7 +120,12 @@ export async function processAccount(env: Env, accountId: string): Promise<void>
         await adapter.addLabel(message.id, labelId);
       }
     } catch (err) {
-      console.error(`Failed to process message ${message.id}:`, err);
+      logError("message_processing_failed", {
+        accountId,
+        messageId: message.id,
+        provider: account.provider,
+        error: err instanceof Error ? err.message : String(err),
+      });
     }
   }
 }
