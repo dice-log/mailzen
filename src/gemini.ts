@@ -1,4 +1,5 @@
-import { Env, GmailMessage, GeminiResult, Category } from "./types";
+import { MailMessage } from "./adapters";
+import { Env, GeminiResult, Category } from "./types";
 
 const GEMINI_API =
   "https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-lite-latest:generateContent";
@@ -12,7 +13,7 @@ const CATEGORIES: Category[] = [
   "other",
 ];
 
-function buildPrompt(message: GmailMessage): string {
+function buildPrompt(message: MailMessage): string {
   return `以下のメールを分析して、JSON形式で回答してください。
 
 件名: ${message.subject}
@@ -33,7 +34,7 @@ ${message.body.slice(0, 3000)}
 
 export async function analyzeMessage(
   env: Env,
-  message: GmailMessage
+  message: MailMessage
 ): Promise<GeminiResult> {
   const res = await fetch(`${GEMINI_API}?key=${env.GEMINI_API_KEY}`, {
     method: "POST",

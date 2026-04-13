@@ -74,11 +74,11 @@ cron (15分) → Producer: D1 から全アカウント取得 → Queue にアカ
 | 50 超 or 1分間隔 | 有料 | $5 | cron 間隔は wrangler.toml の1行変更で対応 |
 
 ### タスク
-- [ ] `mail_accounts` テーブルを D1 に作成
-- [ ] `mail_results` に `account_id` カラムを追加
-- [ ] 暗号化・復号化ユーティリティの実装（AES-GCM）
-- [ ] `ENCRYPTION_KEY` を wrangler secret に追加
-- [ ] Queues 設定（wrangler.toml + Producer 実装）
+- [x] `mail_accounts` テーブルを D1 に作成
+- [x] `mail_results` に `account_id` カラムを追加
+- [x] 暗号化・復号化ユーティリティの実装（AES-GCM）
+- [x] `ENCRYPTION_KEY` を wrangler secret に追加
+- [x] Queues 設定（wrangler.toml + Producer 実装）
 - [ ] Consumer Worker の実装
 - [ ] プロバイダーアダプターのインターフェース設計
 - [ ] Gmail アダプターのリファクタリング

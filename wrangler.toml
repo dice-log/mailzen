@@ -17,3 +17,12 @@ id = "6a4152b614a041038e82308cb97f7611"
 binding = "DB"
 database_name = "mailzen-db"
 database_id = "381dd643-8151-49c9-a002-e9803e4baae0"
+
+[[queues.producers]]
+binding = "MAIL_QUEUE"
+queue = "mailzen-accounts"
+
+[[queues.consumers]]
+queue = "mailzen-accounts"
+max_batch_size = 1
+max_retries = 3

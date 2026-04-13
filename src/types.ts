@@ -1,21 +1,13 @@
+export interface AccountQueueMessage {
+  accountId: string;
+}
+
 export interface Env {
-  GMAIL_CLIENT_ID: string;
-  GMAIL_CLIENT_SECRET: string;
-  GMAIL_REFRESH_TOKEN: string;
+  ENCRYPTION_KEY: string;
   GEMINI_API_KEY: string;
   SENDER_NAMES: KVNamespace;
   DB: D1Database;
-}
-
-export interface GmailMessage {
-  id: string;
-  threadId: string;
-  from: string;
-  to: string;
-  subject: string;
-  body: string;
-  date: string;
-  authResults: string;
+  MAIL_QUEUE: Queue<AccountQueueMessage>;
 }
 
 export interface GeminiResult {

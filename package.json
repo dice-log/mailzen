@@ -1,10 +1,11 @@
 {
   "name": "mailzen",
-  "version": "0.2.1",
+  "version": "0.3.0",
   "private": true,
   "scripts": {
     "dev": "wrangler dev",
-    "deploy": "wrangler deploy"
+    "deploy": "wrangler deploy",
+    "register:account": "node scripts/register-account.mjs"
   },
   "devDependencies": {
     "@cloudflare/workers-types": "^4.20260409.1",
