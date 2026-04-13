@@ -71,6 +71,7 @@ export async function fetchUnreadMessages(token: string): Promise<GmailMessage[]
       subject: getHeader(hdrs, "Subject"),
       body: extractBody(detail.payload),
       date: getHeader(hdrs, "Date"),
+      authResults: getHeader(hdrs, "Authentication-Results"),
     });
   }
 
@@ -106,7 +107,8 @@ export async function resolveLabels(token: string, labelNames: string[]): Promis
 export async function addLabel(
   token: string,
   messageId: string,
-  labelId: string
+  labelId: string,
+  options: { markAsRead: boolean } = { markAsRead: true }
 ): Promise<void> {
   await fetch(`${GMAIL_API}/messages/${messageId}/modify`, {
     method: "POST",
@@ -116,7 +118,7 @@ export async function addLabel(
     },
     body: JSON.stringify({
       addLabelIds: [labelId],
-      removeLabelIds: ["UNREAD"],
+      removeLabelIds: options.markAsRead ? ["UNREAD"] : [],
     }),
   });
 }

@@ -18,6 +18,7 @@ function buildPrompt(message: GmailMessage): string {
 件名: ${message.subject}
 差出人: ${message.from}
 日時: ${message.date}
+認証結果: ${message.authResults || "なし"}
 本文:
 ${message.body.slice(0, 3000)}
 
@@ -25,7 +26,8 @@ ${message.body.slice(0, 3000)}
 {
   "summary": "3行以内の要約（日本語）。氏名・住所・電話番号・口座番号・メールアドレス・確認コード・ワンタイムパスワード等の個人情報やセキュリティ情報は含めないこと",
   "category": "${CATEGORIES.join(" | ")}のいずれか",
-  "senderName": "送信者の企業・サービス名（日本語）。個人からのメールの場合はnull"
+  "senderName": "送信者の企業・サービス名（日本語）。個人からのメールの場合はnull",
+  "suspicious": "フィッシング・詐欺の疑いがある場合はtrue、そうでない場合はfalse。判断基準: SPF/DKIM/DMARCのfail、差出人の表示名とドメインの不一致、緊急性を煽る・個人情報要求・不審なURL等の文面"
 }`;
 }
 
@@ -54,6 +56,7 @@ export async function analyzeMessage(
       summary: "解析に失敗しました",
       category: "other",
       senderName: null,
+      suspicious: false,
     };
   }
 

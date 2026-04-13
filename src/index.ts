@@ -35,7 +35,7 @@ async function processEmails(env: Env): Promise<void> {
   if (!messages.length) return;
 
   // Resolve all labels once upfront
-  const labelNames = CATEGORIES.map((c) => `Mailzen/${c}`);
+  const labelNames = [...CATEGORIES.map((c) => `Mailzen/${c}`), "Mailzen/suspicious"];
   const labelMap = await resolveLabels(token, labelNames);
 
   for (const message of messages) {
@@ -53,10 +53,19 @@ async function processEmails(env: Env): Promise<void> {
         }
       }
 
-      console.log(`[${message.id}] sender=${senderName ?? "unknown"} category=${result.category} summary=${result.summary}`);
+      console.log(`[${message.id}] sender=${senderName ?? "unknown"} category=${result.category} suspicious=${result.suspicious} summary=${result.summary}`);
 
       // Skip labeling if analysis failed — leave as unread
       if (result.summary === "解析に失敗しました") continue;
+
+      // If suspicious: add warning label and leave as unread
+      if (result.suspicious) {
+        const suspiciousLabelId = labelMap.get("Mailzen/suspicious");
+        if (suspiciousLabelId) {
+          await addLabel(token, message.id, suspiciousLabelId, { markAsRead: false });
+        }
+        continue;
+      }
 
       // Label and mark as read
       const labelId = labelMap.get(`Mailzen/${result.category}`);

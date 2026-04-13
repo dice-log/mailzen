@@ -14,12 +14,14 @@ export interface GmailMessage {
   subject: string;
   body: string;
   date: string;
+  authResults: string;
 }
 
 export interface GeminiResult {
   summary: string;
   category: string;
   senderName: string | null;
+  suspicious: boolean;
 }
 
 export type Category =
