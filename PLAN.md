@@ -177,6 +177,30 @@ cron (15分) → Producer: D1 から全アカウント取得 → Queue にアカ
 - **どこにあるべき**: Cloudflare Worker Secret（運用保険として GitHub Secrets にも保持）
 - **重要**: **Gmail のトークンではない**（名前が紛らわしいので別物として扱う）
 
+### `ENCRYPTION_KEY` 生成と取り込み（WSL）
+
+#### 生成 + Windows クリップボード + 一時ファイル保存
+```bash
+umask 077
+KEY_FILE=/tmp/mailzen_encryption_key.txt
+node -e "console.log(require('crypto').randomBytes(32).toString('hex'))" | tee "$KEY_FILE" | tr -d '\n' | clip.exe
+echo "saved:$KEY_FILE len=$(tr -d '\n' < "$KEY_FILE" | wc -c)"
+```
+
+#### シェルにセット（そのターミナルだけ有効）
+```bash
+export ENCRYPTION_KEY="$(tr -d '\n' < /tmp/mailzen_encryption_key.txt)"
+echo -n "$ENCRYPTION_KEY" | wc -c
+```
+
+`wc -c` が **64** なら長さはOK（値自体は画面に出さない運用推奨）。
+
+#### クリップボードから取り込み（任意）
+```bash
+export ENCRYPTION_KEY="$(powershell.exe -NoProfile -Command "Get-Clipboard" | tr -d '\r' | tr -d '\n')"
+echo -n "$ENCRYPTION_KEY" | wc -c
+```
+
 ---
 
 ## Secret 同期と動作確認手順
