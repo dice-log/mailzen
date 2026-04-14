@@ -159,14 +159,15 @@ cron (15分) → Producer: D1 から全アカウント取得 → Queue にアカ
 - 旧 `ENCRYPTION_KEY` を安全な保管先に退避（ロールバック用）
 - 影響範囲を把握（`mail_accounts` の再登録が必要）
 
-#### 1) 新鍵生成（64桁hex）+ クリップボード + 一時ファイル（WSL）
+#### 1) 新鍵生成（64桁hex）+ クリップボード + シェルセット（WSL）
 ```bash
-umask 077
-KEY_FILE=/tmp/mailzen_encryption_key.txt
-node -e "console.log(require('crypto').randomBytes(32).toString('hex'))" | tee "$KEY_FILE" | tr -d '\n' | clip.exe
-echo "len=$(tr -d '\n' < "$KEY_FILE" | wc -c)"
+NEW_KEY="$(openssl rand -hex 32)"
+echo -n "$NEW_KEY" | wc -c
+printf '%s' "$NEW_KEY" | clip.exe
+export ENCRYPTION_KEY="$NEW_KEY"
+unset NEW_KEY
 ```
-- `len` が **64** であることを確認
+- `wc -c` が **64** であることを確認
 
 #### 2) GCP Secret Manager を更新（原本）
 前提: `gcloud` が使え、対象プロジェクトが選べる
@@ -181,7 +182,7 @@ gcloud secrets create mailzen-encryption-key --replication-policy="automatic"
 
 ローテーション本体（新バージョン追加）:
 ```bash
-gcloud secrets versions add mailzen-encryption-key --data-file="$KEY_FILE"
+printf '%s' "$ENCRYPTION_KEY" | gcloud secrets versions add mailzen-encryption-key --data-file=-
 ```
 
 確認（値は出さずメタ情報だけ）:
@@ -195,7 +196,7 @@ GitHub → Repository → Settings → Secrets and variables → Actions
 
 CLI派:
 ```bash
-gh secret set ENCRYPTION_KEY < "$KEY_FILE"
+printf '%s' "$ENCRYPTION_KEY" | gh secret set ENCRYPTION_KEY
 ```
 
 #### 4) Cloudflare Worker Secret を更新（配布先その2）
@@ -205,7 +206,7 @@ GitHub Actions の `Sync Cloudflare Secret` を手動実行:
 
 CLI派（代替）:
 ```bash
-printf '%s' "$(tr -d '\n' < "$KEY_FILE")" | npx wrangler secret put ENCRYPTION_KEY
+printf '%s' "$ENCRYPTION_KEY" | npx wrangler secret put ENCRYPTION_KEY
 ```
 
 #### 5) D1 を整理（再登録前提）
@@ -220,7 +221,6 @@ npx wrangler d1 execute mailzen-db --remote --command "DELETE FROM mail_results;
 
 #### 6) 再登録（新鍵で暗号化して INSERT）
 ```bash
-export ENCRYPTION_KEY="$(tr -d '\n' < "$KEY_FILE")"
 echo -n "$ENCRYPTION_KEY" | wc -c
 
 npm run register:account -- \
@@ -244,7 +244,6 @@ npx wrangler d1 execute mailzen-db --remote --command "SELECT COUNT(*) AS cnt FR
 
 #### 8) 後片付け
 ```bash
-shred -u "$KEY_FILE" 2>/dev/null || rm -f "$KEY_FILE"
 unset ENCRYPTION_KEY
 ```
 
@@ -292,20 +291,14 @@ unset ENCRYPTION_KEY
 
 ### `ENCRYPTION_KEY` 生成と取り込み（WSL）
 
-#### 生成 + Windows クリップボード + 一時ファイル保存
+#### 生成 + Windows クリップボード + シェルセット（ファイル保存なし）
 ```bash
-umask 077
-KEY_FILE=/tmp/mailzen_encryption_key.txt
-node -e "console.log(require('crypto').randomBytes(32).toString('hex'))" | tee "$KEY_FILE" | tr -d '\n' | clip.exe
-echo "saved:$KEY_FILE len=$(tr -d '\n' < "$KEY_FILE" | wc -c)"
-```
-
-#### シェルにセット（そのターミナルだけ有効）
-```bash
-export ENCRYPTION_KEY="$(tr -d '\n' < /tmp/mailzen_encryption_key.txt)"
+NEW_KEY="$(openssl rand -hex 32)"
+printf '%s' "$NEW_KEY" | clip.exe
+export ENCRYPTION_KEY="$NEW_KEY"
+unset NEW_KEY
 echo -n "$ENCRYPTION_KEY" | wc -c
 ```
-
 `wc -c` が **64** なら長さはOK（値自体は画面に出さない運用推奨）。
 
 #### クリップボードから取り込み（任意）
