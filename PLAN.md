@@ -79,9 +79,9 @@ cron (15分) → Producer: D1 から全アカウント取得 → Queue にアカ
 - [x] 暗号化・復号化ユーティリティの実装（AES-GCM）
 - [x] `ENCRYPTION_KEY` を wrangler secret に追加
 - [x] Queues 設定（wrangler.toml + Producer 実装）
-- [ ] Consumer Worker の実装
-- [ ] プロバイダーアダプターのインターフェース設計
-- [ ] Gmail アダプターのリファクタリング
+- [x] Consumer Worker の実装
+- [x] プロバイダーアダプターのインターフェース設計
+- [x] Gmail アダプターのリファクタリング
 
 ---
 
@@ -153,6 +153,29 @@ cron (15分) → Producer: D1 から全アカウント取得 → Queue にアカ
   "refreshToken": "xxx"
 }
 ```
+
+### 用語整理（Gmail OAuth と ENCRYPTION_KEY）
+
+#### 1) `clientId` / `clientSecret`（Google OAuth クライアント）
+- **何のため**: 「このアプリが Google OAuth を使う許可」を証明するペア
+- **どこにあるべき**: Google Cloud の OAuth 2.0 クライアントID（種類は **Webアプリ**）
+- **どこに保存されるか（このプロジェクト）**: D1 の `mail_accounts.credentials`（**暗号化された JSON** の中）
+- **Cloudflare Secret に必須か**: **基本不要**（過去実装の名残で `GMAIL_*` が残っている可能性はあるが、現行コードは D1 参照）
+
+#### 2) `refreshToken`（長期トークン）
+- **何のため**: `access_token` を何度も作り直すための長期トークン
+- **どこに保存されるか**: D1 の `mail_accounts.credentials`（暗号化 JSON の中）
+- **特徴**: 失効したり、OAuthクライアントと紐づく（クライアント作り直し時は取り直しが必要になりやすい）
+
+#### 3) `access_token`（短期トークン）
+- **何のため**: Gmail API を実際に叩くときの資格情報（短期）
+- **どこに保存されるか**: **基本保存しない**（実行時に `refresh_token` から取得）
+- **特徴**: 短命。OAuth Playground で見えやすいのは通常こちら
+
+#### 4) `ENCRYPTION_KEY`（アプリ独自の暗号化鍵）
+- **何のため**: D1 に保存する `credentials` JSON を **AES-GCM で暗号化/復号**するため（DB漏えい時の被害を減らす）
+- **どこにあるべき**: Cloudflare Worker Secret（運用保険として GitHub Secrets にも保持）
+- **重要**: **Gmail のトークンではない**（名前が紛らわしいので別物として扱う）
 
 ---
 
