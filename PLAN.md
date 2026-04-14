@@ -33,7 +33,9 @@
 | account_id | text | FK → mail_accounts.id |
 | message_id | text | プロバイダー側のメッセージID |
 | thread_id | text | スレッドID（リンク生成用） |
-| sender | text | 送信者名 |
+| sender | text | 送信者表示名（表示名優先、無い場合はマスク済み表記） |
+| sender_id | text | 正規化後メールアドレスの SHA-256 先頭20桁（識別子） |
+| sender_domain | text | 送信元ドメイン（例: `gmail.com`） |
 | subject | text | 件名 |
 | category | text | important / newsletter 等 |
 | summary | text | Gemini 生成の要約（個人情報除去済み） |

@@ -7,3 +7,6 @@ dist/
 # Local secrets (never commit)
 credentials.json
 credentials.*.json
+
+# 別リポ: /run 叩き用（mailzen-cron/ で git init して GitHub に push する想定）
+mailzen-cron/

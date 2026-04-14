@@ -35,6 +35,50 @@ function getAdapter(provider: string, credentials: unknown): MailAdapter {
   throw new Error(`Unsupported provider: ${provider}`);
 }
 
+function extractEmailAddress(from: string): string | null {
+  const bracketMatch = from.match(/<([^>]+)>/);
+  if (bracketMatch?.[1]) {
+    return bracketMatch[1].trim();
+  }
+  const directMatch = from.trim().match(/[^\s<>()]+@[^\s<>()]+/);
+  return directMatch ? directMatch[0].trim() : null;
+}
+
+function normalizeEmail(email: string): string {
+  return email.trim().toLowerCase();
+}
+
+function extractDomain(email: string): string | null {
+  const at = email.lastIndexOf("@");
+  if (at < 0 || at === email.length - 1) return null;
+  return email.slice(at + 1);
+}
+
+function extractDisplayName(from: string): string | null {
+  const bracketMatch = from.match(/^(.*?)\s*<[^>]+>$/);
+  const raw = bracketMatch?.[1]?.replace(/^"+|"+$/g, "").trim() ?? "";
+  if (!raw || raw.includes("@")) return null;
+  return raw;
+}
+
+function maskEmail(email: string): string {
+  const [local, domain] = email.split("@");
+  if (!domain) return "***";
+  if (!local) return `***@${domain}`;
+  return `${local[0]}***@${domain}`;
+}
+
+async function buildSenderId(normalizedEmail: string): Promise<string> {
+  const digest = await crypto.subtle.digest(
+    "SHA-256",
+    new TextEncoder().encode(normalizedEmail)
+  );
+  const hex = Array.from(new Uint8Array(digest))
+    .map((b) => b.toString(16).padStart(2, "0"))
+    .join("");
+  return hex.slice(0, 20);
+}
+
 export async function processAccount(env: Env, accountId: string): Promise<void> {
   const account = await env.DB.prepare(
     "SELECT id, email, provider, credentials FROM mail_accounts WHERE id = ?"
@@ -68,7 +112,11 @@ export async function processAccount(env: Env, accountId: string): Promise<void>
     try {
       const result = await analyzeMessage(env, message);
 
-      const domain = message.from.match(/@([\w.-]+)/)?.[1]?.toLowerCase() ?? null;
+      const rawEmail = extractEmailAddress(message.from);
+      const normalizedEmail = rawEmail ? normalizeEmail(rawEmail) : null;
+      const senderDomain = normalizedEmail ? extractDomain(normalizedEmail) : null;
+      const senderId = normalizedEmail ? await buildSenderId(normalizedEmail) : null;
+      const domain = senderDomain;
       let senderName: string | null = null;
       if (domain) {
         senderName = await env.SENDER_NAMES.get(domain);
@@ -77,12 +125,14 @@ export async function processAccount(env: Env, accountId: string): Promise<void>
           await env.SENDER_NAMES.put(domain, senderName);
         }
       }
+      const displayName = extractDisplayName(message.from);
+      const senderLabel = senderName ?? displayName ?? (normalizedEmail ? maskEmail(normalizedEmail) : "unknown");
 
       logInfo("message_analyzed", {
         accountId,
         messageId: message.id,
         provider: account.provider,
-        sender: senderName ?? "unknown",
+        sender: senderLabel,
         category: result.category,
         suspicious: result.suspicious,
       });
@@ -91,14 +141,16 @@ export async function processAccount(env: Env, accountId: string): Promise<void>
 
       await env.DB.prepare(
         `INSERT OR IGNORE INTO mail_results
-           (account_id, message_id, thread_id, sender, subject, category, summary, suspicious, processed_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`
+           (account_id, message_id, thread_id, sender, sender_id, sender_domain, subject, category, summary, suspicious, processed_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
       )
         .bind(
           accountId,
           message.id,
           message.threadId,
-          senderName ?? message.from,
+          senderLabel,
+          senderId,
+          senderDomain,
           message.subject,
           result.category,
           result.summary,
