@@ -13,6 +13,16 @@ export class GmailAdapter implements MailAdapter {
 
   constructor(private readonly creds: GmailCredentials) {}
 
+  private async readJson(res: Response): Promise<unknown> {
+    const text = await res.text();
+    if (!text) return null;
+    try {
+      return JSON.parse(text);
+    } catch {
+      return { raw: text };
+    }
+  }
+
   private async getAccessToken(): Promise<string> {
     if (this.token) return this.token;
     const res = await fetch("https://oauth2.googleapis.com/token", {
@@ -25,8 +35,21 @@ export class GmailAdapter implements MailAdapter {
         grant_type: "refresh_token",
       }),
     });
-    const data = (await res.json()) as { access_token: string };
-    this.token = data.access_token;
+    const data = (await this.readJson(res)) as Record<string, unknown> | null;
+    if (!res.ok) {
+      throw new Error(
+        `OAuth token exchange failed: status=${res.status} body=${JSON.stringify(data)}`
+      );
+    }
+
+    const accessToken = data?.access_token;
+    if (typeof accessToken !== "string" || !accessToken) {
+      throw new Error(
+        `OAuth token exchange returned no access_token: body=${JSON.stringify(data)}`
+      );
+    }
+
+    this.token = accessToken;
     return this.token;
   }
 
@@ -38,16 +61,30 @@ export class GmailAdapter implements MailAdapter {
       `${GMAIL_API}/messages?q=is:unread&maxResults=10`,
       { headers }
     );
-    const listData = (await listRes.json()) as {
+    const listData = ((await this.readJson(listRes)) ?? null) as {
       messages?: { id: string; threadId: string }[];
-    };
+    } | null;
 
-    if (!listData.messages?.length) return [];
+    if (!listRes.ok) {
+      throw new Error(
+        `Gmail messages.list failed: status=${listRes.status} body=${JSON.stringify(listData)}`
+      );
+    }
+
+    const safeListData = listData ?? { messages: [] };
+    if (!safeListData.messages?.length) return [];
 
     const messages: MailMessage[] = [];
-    for (const msg of listData.messages) {
+    for (const msg of safeListData.messages) {
       const detailRes = await fetch(`${GMAIL_API}/messages/${msg.id}`, { headers });
-      const detail = (await detailRes.json()) as any;
+      const detail = (await this.readJson(detailRes)) as any;
+      if (!detailRes.ok) {
+        throw new Error(
+          `Gmail messages.get failed: id=${msg.id} status=${detailRes.status} body=${JSON.stringify(
+            detail
+          )}`
+        );
+      }
       const hdrs = detail.payload?.headers ?? [];
 
       messages.push({
@@ -69,12 +106,20 @@ export class GmailAdapter implements MailAdapter {
     const headers = { Authorization: `Bearer ${token}` };
 
     const labelsRes = await fetch(`${GMAIL_API}/labels`, { headers });
-    const labelsData = (await labelsRes.json()) as {
+    const labelsData = ((await this.readJson(labelsRes)) ?? null) as {
       labels: { id: string; name: string }[];
-    };
+    } | null;
+
+    if (!labelsRes.ok) {
+      throw new Error(
+        `Gmail labels.list failed: status=${labelsRes.status} body=${JSON.stringify(labelsData)}`
+      );
+    }
+
+    const safeLabelsData = labelsData ?? { labels: [] };
 
     const labelMap = new Map<string, string>();
-    for (const existing of labelsData.labels) {
+    for (const existing of safeLabelsData.labels ?? []) {
       labelMap.set(existing.name, existing.id);
     }
 
@@ -85,7 +130,19 @@ export class GmailAdapter implements MailAdapter {
           headers: { ...headers, "Content-Type": "application/json" },
           body: JSON.stringify({ name }),
         });
-        const created = (await createRes.json()) as { id: string; name: string };
+        const created = (await this.readJson(createRes)) as { id: string; name: string } | null;
+        if (!createRes.ok) {
+          throw new Error(
+            `Gmail labels.create failed: name=${name} status=${createRes.status} body=${JSON.stringify(
+              created
+            )}`
+          );
+        }
+        if (!created?.id || !created?.name) {
+          throw new Error(
+            `Gmail labels.create returned unexpected body: body=${JSON.stringify(created)}`
+          );
+        }
         labelMap.set(created.name, created.id);
       }
     }
@@ -98,7 +155,7 @@ export class GmailAdapter implements MailAdapter {
     options: { markAsRead: boolean } = { markAsRead: true }
   ): Promise<void> {
     const token = await this.getAccessToken();
-    await fetch(`${GMAIL_API}/messages/${messageId}/modify`, {
+    const modifyRes = await fetch(`${GMAIL_API}/messages/${messageId}/modify`, {
       method: "POST",
       headers: {
         Authorization: `Bearer ${token}`,
@@ -109,6 +166,14 @@ export class GmailAdapter implements MailAdapter {
         removeLabelIds: options.markAsRead ? ["UNREAD"] : [],
       }),
     });
+    const modifyBody = await this.readJson(modifyRes);
+    if (!modifyRes.ok) {
+      throw new Error(
+        `Gmail messages.modify failed: id=${messageId} status=${modifyRes.status} body=${JSON.stringify(
+          modifyBody
+        )}`
+      );
+    }
   }
 }
 

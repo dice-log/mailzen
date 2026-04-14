@@ -3,3 +3,7 @@ dist/
 .dev.vars
 .wrangler/
 .vscode/
+
+# Local secrets (never commit)
+credentials.json
+credentials.*.json
