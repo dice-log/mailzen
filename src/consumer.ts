@@ -79,6 +79,16 @@ async function buildSenderId(normalizedEmail: string): Promise<string> {
   return hex.slice(0, 20);
 }
 
+async function isTrustedSender(env: Env, senderId: string | null): Promise<boolean> {
+  if (!senderId) return false;
+  const row = await env.DB.prepare(
+    "SELECT sender_id FROM sender_policies WHERE sender_id = ? AND action = 'trust' LIMIT 1"
+  )
+    .bind(senderId)
+    .first<{ sender_id: string }>();
+  return !!row;
+}
+
 export async function processAccount(env: Env, accountId: string): Promise<void> {
   const account = await env.DB.prepare(
     "SELECT id, email, provider, credentials FROM mail_accounts WHERE id = ?"
@@ -116,6 +126,7 @@ export async function processAccount(env: Env, accountId: string): Promise<void>
       const normalizedEmail = rawEmail ? normalizeEmail(rawEmail) : null;
       const senderDomain = normalizedEmail ? extractDomain(normalizedEmail) : null;
       const senderId = normalizedEmail ? await buildSenderId(normalizedEmail) : null;
+      const trustedSender = await isTrustedSender(env, senderId);
       const domain = senderDomain;
       let senderName: string | null = null;
       if (domain) {
@@ -162,7 +173,9 @@ export async function processAccount(env: Env, accountId: string): Promise<void>
       if (result.suspicious) {
         const suspiciousLabelId = labelMap.get("Mailzen/suspicious");
         if (suspiciousLabelId) {
-          await adapter.addLabel(message.id, suspiciousLabelId, { markAsRead: false });
+          await adapter.addLabel(message.id, suspiciousLabelId, {
+            markAsRead: trustedSender,
+          });
         }
         continue;
       }

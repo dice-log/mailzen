@@ -1,11 +1,17 @@
 {
   "name": "mailzen",
-  "version": "0.4.0",
+  "version": "0.4.1",
   "private": true,
   "scripts": {
     "dev": "wrangler dev",
     "deploy": "wrangler deploy",
-    "register:account": "node scripts/register-account.mjs"
+    "register:account": "node scripts/register-account.mjs",
+    "d1:apply": "wrangler d1 migrations apply mailzen-db --remote",
+    "d1:results:clear": "wrangler d1 execute mailzen-db --remote --command \"DELETE FROM mail_results;\"",
+    "d1:results:latest": "wrangler d1 execute mailzen-db --remote --command \"SELECT id, sender, sender_id, sender_domain, processed_at FROM mail_results ORDER BY id DESC LIMIT 10;\"",
+    "run:trigger": "curl -fsS \"https://mailzen.dice-deli-dev.workers.dev/run\"",
+    "ops:refresh": "npm run d1:results:clear && npm run run:trigger",
+    "logs:tail": "wrangler tail mailzen"
   },
   "devDependencies": {
     "@cloudflare/workers-types": "^4.20260409.1",
