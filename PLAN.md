@@ -140,6 +140,116 @@ cron (15分) → Producer: D1 から全アカウント取得 → Queue にアカ
 - 復号テスト1件が通るまで旧鍵を破棄しない
 - 本番データがある環境では、再暗号化なしで鍵だけ先に差し替えない
 
+### ENCRYPTION_KEY ローテーション（GCP Secret Manager を正にする完全版）
+
+方針:
+- **GCP Secret Manager** に `ENCRYPTION_KEY` の原本（バージョン管理）を置く
+- **GitHub Secrets / Cloudflare Secret** は配布先（実行環境へ同期）
+- D1 の `mail_accounts.credentials` は暗号化済みデータなので、鍵だけ先に差し替えると復号不能になり得る  
+  → この手順は **再登録前提（DELETE → register）** を基本とする（全件再暗号化ジョブが無い前提）
+
+補足:
+- **GitHub Secrets に `ENCRYPTION_KEY` を置かない**運用へ寄せることは可能だが、同期パイプライン用の認証（GCP/Cloudflare）は別途必要になる
+- 「GCPに一本化」は検討余地あり（現状は GitHub Secrets 経由の同期でも可）
+
+#### 0) 事前確認
+- 旧 `ENCRYPTION_KEY` を安全な保管先に退避（ロールバック用）
+- 影響範囲を把握（`mail_accounts` の再登録が必要）
+
+#### 1) 新鍵生成（64桁hex）+ クリップボード + 一時ファイル（WSL）
+```bash
+umask 077
+KEY_FILE=/tmp/mailzen_encryption_key.txt
+node -e "console.log(require('crypto').randomBytes(32).toString('hex'))" | tee "$KEY_FILE" | tr -d '\n' | clip.exe
+echo "len=$(tr -d '\n' < "$KEY_FILE" | wc -c)"
+```
+- `len` が **64** であることを確認
+
+#### 2) GCP Secret Manager を更新（原本）
+前提: `gcloud` が使え、対象プロジェクトが選べる
+
+初回のみ（シークレット未作成のとき）:
+```bash
+export PROJECT_ID="your-gcp-project-id"
+gcloud config set project "$PROJECT_ID"
+gcloud services enable secretmanager.googleapis.com
+gcloud secrets create mailzen-encryption-key --replication-policy="automatic"
+```
+
+ローテーション本体（新バージョン追加）:
+```bash
+gcloud secrets versions add mailzen-encryption-key --data-file="$KEY_FILE"
+```
+
+確認（値は出さずメタ情報だけ）:
+```bash
+gcloud secrets versions list --secret=mailzen-encryption-key --limit=5
+```
+
+#### 3) GitHub Secrets を更新（配布先その1）
+GitHub → Repository → Settings → Secrets and variables → Actions  
+- `ENCRYPTION_KEY` を新しい値に更新
+
+CLI派:
+```bash
+gh secret set ENCRYPTION_KEY < "$KEY_FILE"
+```
+
+#### 4) Cloudflare Worker Secret を更新（配布先その2）
+GitHub Actions の `Sync Cloudflare Secret` を手動実行:
+- `target=production`
+- `confirm_old_key_backed_up=yes`
+
+CLI派（代替）:
+```bash
+printf '%s' "$(tr -d '\n' < "$KEY_FILE")" | npx wrangler secret put ENCRYPTION_KEY
+```
+
+#### 5) D1 を整理（再登録前提）
+```bash
+npx wrangler d1 execute mailzen-db --remote --command "DELETE FROM mail_accounts;"
+```
+
+任意（履歴も捨てるなら）:
+```bash
+npx wrangler d1 execute mailzen-db --remote --command "DELETE FROM mail_results;"
+```
+
+#### 6) 再登録（新鍵で暗号化して INSERT）
+```bash
+export ENCRYPTION_KEY="$(tr -d '\n' < "$KEY_FILE")"
+echo -n "$ENCRYPTION_KEY" | wc -c
+
+npm run register:account -- \
+  --email "you@example.com" \
+  --provider gmail \
+  --credentials-file "./credentials.json" \
+  --execute true
+```
+
+注意:
+- `register:account` は基本 **INSERT** なので、**5) を挟まずに複数回実行すると重複しやすい**
+
+#### 7) 動作確認（E2E）
+```bash
+curl -fsS "https://mailzen.<your-subdomain>.workers.dev/run"
+```
+
+```bash
+npx wrangler d1 execute mailzen-db --remote --command "SELECT COUNT(*) AS cnt FROM mail_results;"
+```
+
+#### 8) 後片付け
+```bash
+shred -u "$KEY_FILE" 2>/dev/null || rm -f "$KEY_FILE"
+unset ENCRYPTION_KEY
+```
+
+#### 失敗時のロールバック（最短）
+1. 旧 `ENCRYPTION_KEY` を GitHub Secrets に戻す（退避済みの値）
+2. `Sync Cloudflare Secret` を再実行（または `wrangler secret put`）
+3. `/run` で復号・処理が戻ることを確認
+
 ---
 
 ## Gmail credentials.json 最小フォーマット
