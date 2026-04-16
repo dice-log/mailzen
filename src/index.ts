@@ -24,10 +24,43 @@ export default {
     env: Env,
     ctx: ExecutionContext
   ): Promise<Response> {
-    if (new URL(request.url).pathname === "/run") {
+    const url = new URL(request.url);
+
+    if (url.pathname === "/run") {
       ctx.waitUntil(enqueueAccounts(env));
       return new Response("Processing started", { status: 200 });
     }
+
+    if (url.pathname === "/api/mails") {
+      const category = url.searchParams.get("category");
+      const limit = Math.min(parseInt(url.searchParams.get("limit") ?? "50"), 200);
+
+      let query = `SELECT id, sender, sender_domain, subject, category, summary, suspicious, processed_at, thread_id, account_id
+                   FROM mail_results`;
+      const params: (string | number)[] = [];
+
+      if (category && category !== "all") {
+        if (category === "suspicious") {
+          query += ` WHERE suspicious = 1`;
+        } else {
+          query += ` WHERE category = ?`;
+          params.push(category);
+        }
+      }
+
+      query += ` ORDER BY processed_at DESC LIMIT ?`;
+      params.push(limit);
+
+      const { results } = await env.DB.prepare(query).bind(...params).all();
+
+      return new Response(JSON.stringify(results), {
+        headers: {
+          "Content-Type": "application/json",
+          "Access-Control-Allow-Origin": "*",
+        },
+      });
+    }
+
     return new Response("Mailzen is running", { status: 200 });
   },
 
