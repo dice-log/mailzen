@@ -27,14 +27,17 @@
   }
 
   function openMail(threadId: string) {
-    const isMobile = /iPhone|Android/i.test(navigator.userAgent);
-    if (isMobile) {
+    const isAndroid = /Android/i.test(navigator.userAgent);
+    const isIOS = /iPhone|iPad/i.test(navigator.userAgent);
+    const webUrl = `https://mail.google.com/mail/u/0/#inbox/${threadId}`;
+
+    if (isAndroid) {
+      window.location.href = `intent://mail.google.com/mail/u/0/#inbox/${threadId}#Intent;scheme=https;package=com.google.android.gm;end`;
+    } else if (isIOS) {
       window.location.href = `googlegmail://mail/u/0/#inbox/${threadId}`;
-      setTimeout(() => {
-        window.open(`https://mail.google.com/mail/u/0/#inbox/${threadId}`, '_blank');
-      }, 1500);
+      setTimeout(() => { window.open(webUrl, '_blank'); }, 1500);
     } else {
-      window.open(`https://mail.google.com/mail/u/0/#inbox/${threadId}`, '_blank');
+      window.open(webUrl, '_blank');
     }
   }
 
