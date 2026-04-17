@@ -92,6 +92,8 @@
                 {#if mail.thread_id}
                   <a
                     href="https://mail.google.com/mail/u/0/#inbox/{mail.thread_id}"
+                    target="_blank"
+                    rel="noopener noreferrer"
                     class="open-link"
                   >開く ↗</a>
                 {/if}
