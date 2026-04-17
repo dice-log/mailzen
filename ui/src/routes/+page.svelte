@@ -26,20 +26,6 @@
     return new Date(iso).toLocaleDateString('ja-JP');
   }
 
-  function openMail(threadId: string) {
-    const isAndroid = /Android/i.test(navigator.userAgent);
-    const isIOS = /iPhone|iPad/i.test(navigator.userAgent);
-    const webUrl = `https://mail.google.com/mail/u/0/#inbox/${threadId}`;
-
-    if (isAndroid) {
-      window.location.href = `intent://mail.google.com/mail/u/0/#inbox/${threadId}#Intent;scheme=https;package=com.google.android.gm;end`;
-    } else if (isIOS) {
-      window.location.href = `googlegmail://mail/u/0/#inbox/${threadId}`;
-      setTimeout(() => { window.open(webUrl, '_blank'); }, 1500);
-    } else {
-      window.open(webUrl, '_blank');
-    }
-  }
 
   function groupByDate(mails: any[]): { label: string; items: any[] }[] {
     const groups: Map<string, any[]> = new Map();
@@ -104,10 +90,10 @@
               <div class="card-footer">
                 <span class="badge badge-{mail.category}">{mail.category}</span>
                 {#if mail.thread_id}
-                  <button
-                    onclick={() => openMail(mail.thread_id)}
+                  <a
+                    href="https://mail.google.com/mail/u/0/#inbox/{mail.thread_id}"
                     class="open-link"
-                  >開く ↗</button>
+                  >開く ↗</a>
                 {/if}
               </div>
             </div>
@@ -270,10 +256,7 @@
   .open-link {
     font-size: 0.78rem;
     color: #4a6fa5;
-    background: none;
-    border: none;
-    padding: 0;
-    cursor: pointer;
+    text-decoration: none;
   }
 
   .open-link:hover { text-decoration: underline; }
