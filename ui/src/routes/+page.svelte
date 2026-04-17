@@ -26,6 +26,18 @@
     return new Date(iso).toLocaleDateString('ja-JP');
   }
 
+  function openMail(threadId: string) {
+    const isMobile = /iPhone|Android/i.test(navigator.userAgent);
+    if (isMobile) {
+      window.location.href = `googlegmail://mail/u/0/#inbox/${threadId}`;
+      setTimeout(() => {
+        window.open(`https://mail.google.com/mail/u/0/#inbox/${threadId}`, '_blank');
+      }, 1500);
+    } else {
+      window.open(`https://mail.google.com/mail/u/0/#inbox/${threadId}`, '_blank');
+    }
+  }
+
   function groupByDate(mails: any[]): { label: string; items: any[] }[] {
     const groups: Map<string, any[]> = new Map();
     const today    = new Date(); today.setHours(0,0,0,0);
@@ -89,12 +101,10 @@
               <div class="card-footer">
                 <span class="badge badge-{mail.category}">{mail.category}</span>
                 {#if mail.thread_id}
-                  <a
-                    href="https://mail.google.com/mail/u/0/#inbox/{mail.thread_id}"
-                    target="_blank"
-                    rel="noopener noreferrer"
+                  <button
+                    onclick={() => openMail(mail.thread_id)}
                     class="open-link"
-                  >開く ↗</a>
+                  >開く ↗</button>
                 {/if}
               </div>
             </div>
@@ -257,7 +267,10 @@
   .open-link {
     font-size: 0.78rem;
     color: #4a6fa5;
-    text-decoration: none;
+    background: none;
+    border: none;
+    padding: 0;
+    cursor: pointer;
   }
 
   .open-link:hover { text-decoration: underline; }
