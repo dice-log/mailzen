@@ -4,6 +4,7 @@
   "private": true,
   "scripts": {
     "dev": "wrangler dev",
+    "dev:ui": "concurrently \"wrangler dev --remote\" \"cd ui && VITE_API_BASE=https://mailzen.dice-deli-dev.workers.dev npm run dev -- --host\"",
     "deploy": "wrangler deploy",
     "register:account": "node scripts/register-account.mjs",
     "d1:apply": "wrangler d1 migrations apply mailzen-db --remote",
@@ -15,6 +16,7 @@
   },
   "devDependencies": {
     "@cloudflare/workers-types": "^4.20260409.1",
+    "concurrently": "^9.2.1",
     "typescript": "^6.0.2",
     "wrangler": "^4.81.0"
   }
